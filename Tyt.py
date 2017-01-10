@@ -1,5 +1,5 @@
 #!/usr/bin/env
-
+ # -*- coding: UTF8 -*-
 
 ##########    Tune Your Twizy    ###########
 # This tool can be used to configure some controller parameter of your Renault Twizy.
@@ -36,19 +36,11 @@
 # Falls nicht, schreiben Sie an die Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110, USA.
 
 
-from gi.repository import Gtk
 import serial
 import sys
 import platform
 import os
 
-
-class Handler:
-    def onDeleteWindow(self, *args):
-        Gtk.main_quit(*args)
-
-    #    def onButtonPressed(self, button):
-    #    print("Hello World!")
 
 
 
@@ -69,6 +61,19 @@ def get_available_serial_interfaces():
     elif platform.system() == "Windows":
         print "bin unter windows. wie bekommt man alle COM ports ?"
     
+    elif platform.system() == "Darwin":
+        print "Mac OS erkannt"
+        all_serial_devices = os.listdir("/dev")
+
+        selectable_serial_interfaces = []
+        for device in all_serial_devices:
+            #print device
+            if device.startswith("tty."):
+
+                selectable_serial_interfaces.append(device) 
+
+        return selectable_serial_interfaces
+
     else:
         print "Betriebssystem momentan nicht unterstuetzt"
 
@@ -94,56 +99,28 @@ def open_selected_serial_interface(selected_interface):
             serial_interface_handler = serial.Serial()       # open the first COM port available
         except serial.SerialException, e:
             print("Could not open serial port: %s" % ( e))
-            print "In case your user has not the necessary permissions, try:sudo usermod -a -G dialout $USER and sudo apt-get remove modemmanager"
-        
+            
 
+    elif platform.system() == "Darwin":
+        try:
+            print "öffne port", selected_interface
+            serial_interface_handler = serial.Serial(port = "/dev/%s" % selected_interface)
+        except serial.SerialException, e:
+            print("Could not open serial port: %s" % ( e))
+            
     else:
-        print "Betriebssystem momentan nicht unterstuetzt"
+        print "Betriebssystem momentan nicht unterstützt"
 
 
     return serial_interface_handler
 
 
+# just test code to test the both serial port functions
 
-
-# load the GUI from a glade file
-builder = Gtk.Builder()
-builder.add_from_file("tyt.glade")
-       
-# connect signals
-builder.connect_signals(Handler())
-
-# get main window object and resize it
-window = builder.get_object("MainWindow")
-window.set_default_size(550,400)
-
-
-# prepare the statusbar
-tyt_statusbar = builder.get_object("tyt_statusbar") 
-context_id_1 = tyt_statusbar.get_context_id("interface")
-
-
-# prepare the interface combobox and show all available serial interfaces
-interfaces_combo_box = builder.get_object("combobox_interface")
 available_serial_interfaces = get_available_serial_interfaces()
+print available_serial_interfaces
+if len(available_serial_interfaces)>1:
+    # example: open second found interface 
+    opened_serial_interface = open_selected_serial_interface(available_serial_interfaces[1])
+    print opened_serial_interface
 
-if available_serial_interfaces:
-    tyt_statusbar.push(context_id_1, "Bitte eine Schnittstelle auswaehlen und auf Verbinden klicken.")
-
-    for interface in available_serial_interfaces:
-        interfaces_combo_box.append_text(interface)
-else:
-    tyt_statusbar.push(context_id_1, "Es wurden keine seriellen Schnittstellen gefunden.")
-
-# everything is prepared - show window and start listening
-window.show_all()
-
-Gtk.main()
-
-'''
-
-    if ser:
-        print("Opened serial port: %s with properties: %s" % (ser.name, ser.getSettingsDict()))
-    else:
-        print "Opening serial port was not successful."
-'''
