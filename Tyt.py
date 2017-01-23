@@ -5,7 +5,8 @@
 # This tool can be used to configure some controller parameter of your Renault Twizy.
 # This graphical tool communicates with an OVMS, which has to be connected to the Twizy before. 
 #
-# Copyright (C) 2015  Falk Wilamowski
+# Copyright (C) 2015  Falk Wilamowski (falk@wilamowski.de)
+# code for windows serial port detection from Eli Bendersky (eliben@gmail.com)
 #
 #############################################
 
@@ -41,11 +42,42 @@ import sys
 import platform
 import os
 
+import re, itertools
+import _winreg as winreg
+   
+def get_full_port_name_windows(portname):
+    """ Given a port-name (of the form COM7, 
+        COM12, CNCA0, etc.) returns a full 
+        name suitable for opening with the 
+        Serial class.
+    """
+    m = re.match('^COM(\d+)$', portname)
+    if m and int(m.group(1)) < 10:
+        return portname    
+    return '\\\\.\\' + portname    
+    
 
+def detected_serial_ports_in_windows():
+    """ Uses the Win32 registry to return an 
+        iterator of serial (COM) ports 
+        existing on this computer.
+    """
+    path = 'HARDWARE\\DEVICEMAP\\SERIALCOMM'
+    try:
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, path)
+    except WindowsError:
+        raise IterationError
+
+    for i in itertools.count():
+        try:
+            val = winreg.EnumValue(key, i)
+            yield str(val[1])
+        except EnvironmentError:
+            break
 
 
 def get_available_serial_interfaces():
-
+    all_serial_devices = []
 
     if  platform.system() == "Linux":
          
@@ -57,9 +89,13 @@ def get_available_serial_interfaces():
             print "Keine seriellen Ports gefunden"
             return None
     
-    # TODO muss noch unter Windows ausprobiert und erweitert werden !
+    
     elif platform.system() == "Windows":
-        print "bin unter windows. wie bekommt man alle COM ports ?"
+        for p in detected_serial_ports_in_windows():
+            all_serial_devices.append(get_full_port_name_windows(p))
+
+        return all_serial_devices
+    
     
     elif platform.system() == "Darwin":
         print "Mac OS erkannt"
@@ -80,6 +116,7 @@ def get_available_serial_interfaces():
 
 
 
+
 def open_selected_serial_interface(selected_interface):
 
     serial_interface_handler = None
@@ -93,7 +130,6 @@ def open_selected_serial_interface(selected_interface):
             print "In case your user has not the necessary permissions, try:sudo usermod -a -G dialout $USER and sudo apt-get remove modemmanager"
             
 
-    # TODO muss noch unter Windows ausprobiert und erweitert werden !
     elif platform.system() == "Windows":
         try :    
             serial_interface_handler = serial.Serial()       # open the first COM port available
@@ -119,8 +155,11 @@ def open_selected_serial_interface(selected_interface):
 
 available_serial_interfaces = get_available_serial_interfaces()
 print available_serial_interfaces
-if len(available_serial_interfaces)>1:
+
+if available_serial_interfaces and  len(available_serial_interfaces)>0:
     # example: open second found interface 
-    opened_serial_interface = open_selected_serial_interface(available_serial_interfaces[1])
+    opened_serial_interface = open_selected_serial_interface(available_serial_interfaces[0])
     print opened_serial_interface
+else:
+    print "keine serielle Schnittstelle gefunden."
 
