@@ -43,7 +43,9 @@ import platform
 import os
 
 import re, itertools
-import _winreg as winreg
+
+if platform.system() == "Windows":
+    import _winreg as winreg
    
 def get_full_port_name_windows(portname):
     """ Given a port-name (of the form COM7, 
